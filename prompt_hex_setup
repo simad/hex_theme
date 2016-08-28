@@ -1,0 +1,228 @@
+#
+# A two-line theme, based on the awesome Paradox & Sorin.
+# This theme requires a patched Powerline font with extra glyphs,
+# get them from https://github.com/ryanoasis/nerd-fonts, or patch your own
+#
+#
+
+# Load dependencies.
+pmodload 'helper'
+
+
+# Characters
+SEPARATOR_LOW_TRIANGLE="\ue0b8"
+SEPARATOR_HIGH_TRIANGLE="\ue0bc"
+SEPARATOR_FLAME="\ue0c0"
+SEPARATOR_BRICKS="\ue0c6"
+
+# COFFEE="\uf0f4" #"text" version of the coffee cup
+COFFEE="☕"
+CLOCK="\uf017"
+BRANCH="\ue725"
+
+# non-circled symbols
+# ALL_GOOD="\uf00c" #v mark
+# EDITED="\uf134"
+# ADDED="\uf067"
+# UNTRACKED="\uf128"
+# MODIFIED="\uf069" #asterisk
+# DELETED="\uf068"
+# STASH="\uf0c2"
+# AHEAD="\uf077"
+# BEHIND="\uf078"
+# ACTION="\uf0ad"
+# COMMIT="\uf064"
+# TAG="\uf02b"
+# RENAMED="\uf079" #reload
+# UNMERGED="\uf066"
+
+# circled symbols
+ALL_GOOD="\uf058" #v mark
+EDITED="\uf134"
+ADDED="\uf055"
+UNTRACKED="\uf059"
+MODIFIED="\uf111"
+DELETED="\uf057"
+STASH="\uf0ac"
+AHEAD="\uf139"
+BEHIND="\uf13a"
+ACTION="\uf0ad"
+COMMIT="\uf064"
+TAG="\uf02b"
+RENAMED="\uf056"
+UNMERGED="\uf06a"
+
+LUNCH="\uf0f5"
+MOON="\uf186"
+
+# Define variables.
+_prompt_hex_current_bg='NONE'
+_prompt_hex_segment_separator=${SEPARATOR_LOW_TRIANGLE}
+_prompt_hex_start_time=$SECONDS
+
+function prompt_hex_start_segment {
+  local bg fg
+  [[ -n "$1" ]] && bg="%K{$1}" || bg="%k"
+  [[ -n "$2" ]] && fg="%F{$2}" || fg="%f"
+  if [[ "$_prompt_hex_current_bg" != 'NONE' && "$1" != "$_prompt_hex_current_bg" ]]; then
+    print -n " $bg%F{$_prompt_hex_current_bg}$_prompt_hex_segment_separator$fg "
+  else
+    print -n "$bg$fg "
+  fi
+  _prompt_hex_current_bg="$1"
+  [[ -n "$3" ]] && print -n "$3"
+}
+
+function prompt_hex_end_segment {
+  if [[ -n "$_prompt_hex_current_bg" ]]; then
+    print -n " %k%F{$_prompt_hex_current_bg}$_prompt_hex_segment_separator"
+  else
+    print -n "%k"
+  fi
+  print -n "%f"
+  _prompt_hex_current_bg=''
+}
+
+function prompt_hex_build_left_prompt {
+  prompt_hex_start_segment black default "%(?::%F{red}✘ )%(!:%F{yellow}⚡ :)%(1j:%F{cyan}⚙ :)%F{magenta}%n%F{red}+%F{yellow}${COFFEE} %f"
+
+  prompt_hex_start_segment white black ' $_prompt_hex_pwd'
+  is_dirty() {
+    test -n "$(git status --porcelain --ignore-submodules)"
+  }
+
+  if [[ -n "$git_info" ]]; then
+    if is_dirty; then
+      prompt_hex_start_segment red black '${(e)git_info[ref]}'
+    else
+      prompt_hex_start_segment green black '${(e)git_info[ref]}'
+    fi
+      prompt_hex_start_segment yellow black '${(e)git_info[status]}'
+  fi
+  prompt_hex_end_segment
+}
+
+function prompt_hex_build_right_prompt {
+  local decorator
+  if is_lunch_time; then
+    decorator="%F{yellow}${LUNCH} %F{red}It's lunch o'"
+  elif is_night_time; then
+    decorator="%F{yellow}${MOON} %F{blue}It's bed o'"
+fi
+  print ${decorator}${CLOCK} '%F{cyan}[%f%D{%H:%M:%S}%F{cyan}]%f'
+}
+
+function prompt_hex_pwd {
+  local pwd="${PWD/#$HOME/~}"
+
+  if [[ "$pwd" == (#m)[/~] ]]; then
+    _prompt_hex_pwd="$MATCH"
+    unset MATCH
+  else
+    _prompt_hex_pwd="%B%c%f"
+  fi
+}
+
+function is_lunch_time {
+  H=$(date +%H)
+  if (( 12 <= 10#$H && 10#$H < 13 )); then
+    return 0
+  fi
+  return 1
+}
+
+function is_night_time {
+  H=$(date +%H)
+  if (( 22 <= 10#$H && 10#$H < 0 )); then
+    return 0
+  fi
+  return 1
+}
+
+function prompt_hex_print_elapsed_time {
+  local end_time=$(( SECONDS - _prompt_hex_start_time ))
+  local hours minutes seconds remainder
+
+  if (( end_time >= 3600 )); then
+    hours=$(( end_time / 3600 ))
+    remainder=$(( end_time % 3600 ))
+    minutes=$(( remainder / 60 ))
+    seconds=$(( remainder % 60 ))
+    print -P "%B%F{red}>>> elapsed time ${hours}h${minutes}m${seconds}s%b"
+  elif (( end_time >= 60 )); then
+    minutes=$(( end_time / 60 ))
+    seconds=$(( end_time % 60 ))
+    print -P "%B%F{yellow}>>> elapsed time ${minutes}m${seconds}s%b"
+  elif (( end_time > 10 )); then
+    print -P "%B%F{green}>>> elapsed time ${end_time}s%b"
+  fi
+}
+
+function prompt_hex_precmd {
+  setopt LOCAL_OPTIONS
+  unsetopt XTRACE KSH_ARRAYS
+
+  # Format PWD.
+  prompt_hex_pwd
+
+  # Get Git repository information.
+  if (( $+functions[git-info] )); then
+    git-info
+  fi
+
+  # Calculate and print the elapsed time.
+  prompt_hex_print_elapsed_time
+}
+
+function prompt_hex_preexec {
+  _prompt_hex_start_time="$SECONDS"
+}
+
+function prompt_hex_setup {
+  setopt LOCAL_OPTIONS
+  unsetopt XTRACE KSH_ARRAYS
+  prompt_opts=(cr percent subst)
+
+  # Load required functions.
+  autoload -Uz add-zsh-hook
+
+  # Add hook for calling git-info before each command.
+  add-zsh-hook preexec prompt_hex_preexec
+  add-zsh-hook precmd prompt_hex_precmd
+
+  # Set editor-info parameters.
+  zstyle ':prezto:module:editor:info:completing' format '%B%F{7}...%f%b'
+  zstyle ':prezto:module:editor:info:keymap:primary' format ' %B%F{1}❯%F{3}❯%F{2}❯%f%b'
+  zstyle ':prezto:module:editor:info:keymap:primary:overwrite' format ' %F{3}♺%f'
+  zstyle ':prezto:module:editor:info:keymap:alternate' format ' %B%F{2}❮%F{3}❮%F{1}❮%f%b'
+
+  # Set git-info parameters.
+  zstyle ':prezto:module:git:info' verbose 'yes'
+  zstyle ':prezto:module:git:info:action' format '${ACTION} %s'
+  zstyle ':prezto:module:git:info:added' format '${ADDED}' #%a add count
+  zstyle ':prezto:module:git:info:ahead' format '${AHEAD}' #%A count
+  zstyle ':prezto:module:git:info:behind' format '${BEHIND}' #%B count
+  zstyle ':prezto:module:git:info:branch' format '${BRANCH} %b'
+  # zstyle ':prezto:module:git:info:clean' format '${ALL_GOOD}'
+  zstyle ':prezto:module:git:info:commit' format '${COMMIT} %.7c'
+  zstyle ':prezto:module:git:info:deleted' format '${DELETED}' #%d count
+  #zstyle ':prezto:module:git:info:dirty' format '${EDITED}' #%D count
+  zstyle ':prezto:module:git:info:modified' format '${MODIFIED}' #%m count
+  zstyle ':prezto:module:git:info:position' format '${TAG} %p'
+  zstyle ':prezto:module:git:info:renamed' format '${RENAMED}' #%r count
+  zstyle ':prezto:module:git:info:stashed' format '${STASHED}' #%S count
+  zstyle ':prezto:module:git:info:unmerged' format '${UNMERGED}' #%U count
+  zstyle ':prezto:module:git:info:untracked' format '${UNTRACKED}' #%u count
+  zstyle ':prezto:module:git:info:keys' format \
+    'ref' '$(coalesce "%b" "%c" "%p")' \
+    'status' '$(print %s %C %D %A %B %a %d %m %r %U %u %S)'
+
+  # Define prompts.
+  PROMPT='
+${(e)$(prompt_hex_build_left_prompt)}
+ ${editor_info[keymap]} '
+  RPROMPT='$(prompt_hex_build_right_prompt)'
+  SPROMPT='zsh: correct %F{red}%R%f to %F{green}%r%f [nyae]? '
+}
+
+prompt_hex_setup "$@"
